@@ -90,7 +90,7 @@ function exportName(object, asInterface) {
     while (i < parts.length)
         parts[i] = escapeName(parts[i++]);
     if (asInterface)
-        parts[i - 1] = "I" + parts[i - 1];
+        parts[i - 1] = addI(parts[i - 1]);
     return object[asInterface ? "__interfaceName" : "__exportName"] = parts.join(".");
 }
 
@@ -106,6 +106,15 @@ function aOrAn(name) {
         : "a ") + name;
 }
 
+function addI(name) {
+    var parts = name.split('.');
+    parts[parts.length - 1] = "I" + parts[parts.length - 1];
+    return parts.join('.');
+}
+
+function isFieldOptional(field) {
+  return field.optional && !(field.options && field.options.required);
+}
 function buildNamespace(ref, ns) {
     if (!ns)
         return;
@@ -355,16 +364,17 @@ function buildType(ref, type) {
     if (config.comments) {
         var typeDef = [
             "Properties of " + aOrAn(type.name) + ".",
-            type.parent instanceof protobuf.Root ? "@exports " + escapeName("I" + type.name) : "@memberof " + exportName(type.parent),
-            "@interface " + escapeName("I" + type.name)
+            type.parent instanceof protobuf.Root ? "@exports " + escapeName(addI(type.name)) : "@memberof " + exportName(type.parent),
+            "@interface " + escapeName(addI(type.name))
         ];
         type.fieldsArray.forEach(function(field) {
             var prop = util.safeProp(field.name); // either .name or ["name"]
             prop = prop.substring(1, prop.charAt(0) === "[" ? prop.length - 1 : prop.length);
             var jsType = toJsType(field);
-            if (field.optional)
+            var isOptional = isFieldOptional(field);
+            if (isOptional)
                 jsType = jsType + "|null";
-            typeDef.push("@property {" + jsType + "} " + (field.optional ? "[" + prop + "]" : prop) + " " + (field.comment || type.name + " " + field.name));
+            typeDef.push("@property {" + jsType + "} " + (isOptional ? "[" + prop + "]" : prop) + " " + (field.comment || type.name + " " + field.name));
         });
         push("");
         pushComment(typeDef);
@@ -376,7 +386,7 @@ function buildType(ref, type) {
         "Constructs a new " + type.name + ".",
         type.parent instanceof protobuf.Root ? "@exports " + escapeName(type.name) : "@memberof " + exportName(type.parent),
         "@classdesc " + (type.comment || "Represents " + aOrAn(type.name) + "."),
-        config.comments ? "@implements " + escapeName("I" + type.name) : null,
+        config.comments ? "@implements " + escapeName(addI(type.name)) : null,
         "@constructor",
         "@param {" + exportName(type, true) + "=} [" + (config.beautify ? "properties" : "p") + "] Properties to set"
     ]);
@@ -390,7 +400,8 @@ function buildType(ref, type) {
         if (config.comments) {
             push("");
             var jsType = toJsType(field);
-            if (field.optional && !field.map && !field.repeated && field.resolvedType instanceof Type)
+            var isOptional = isFieldOptional(field);
+            if (isOptional && !field.map && !field.repeated && field.resolvedType instanceof Type)
                 jsType = jsType + "|null|undefined";
             pushComment([
                 field.comment || type.name + " " + field.name + ".",
