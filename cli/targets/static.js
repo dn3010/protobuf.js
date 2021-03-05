@@ -113,7 +113,9 @@ function addI(name) {
 }
 
 function isFieldOptional(field) {
-  return field.optional && !(field.options && field.options.required);
+  return field.optional &&
+    !(field.options && field.options.required) &&
+    !(field.options && field.options['(purs.required)']);
 }
 function buildNamespace(ref, ns) {
     if (!ns)
